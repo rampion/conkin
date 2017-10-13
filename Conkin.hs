@@ -26,9 +26,9 @@ module Conkin
   , Tagged(..)
   {- utility types -}
   , Flip(..)
+  , Curry(..)
   --, Exists(..)
   --, Both(..)
-  --, Curry(..)
   --, Curry2(..)
   --, Compose2(..)
   ) where
@@ -37,7 +37,7 @@ import qualified Prelude
 import qualified Control.Applicative as Prelude
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
-import Data.Kind
+import Data.Kind (type (*), Type)
 import Data.Monoid (Endo(..), (<>))
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -45,20 +45,20 @@ type Cont r a = (a -> r) -> r
 
 {- Classes ----------------------------------------------------------------------}
 
-{-| A Functor from Hask^k to Hask #-}
+{-| A functor from Hask^k to Hask -}
 class Functor (f :: Cont Type k) where
   fmap :: (forall (x :: k). a x -> b x) -> f a -> f b
 
-infixl 4 <$>
 (<$>) :: Functor f => (forall x. a x -> b x) -> f a -> f b 
 (<$>) = fmap
+infixl 4 <$>
 
-infixl 4 <*>
 class Functor f => Applicative (f :: Cont Type k) where
   pure :: (forall (x :: k). a x) -> f a
   (<*>) :: f (a ~> b) -> f a -> f b
+infixl 4 <*>
 
-{-| a ~> b is an arrow in Hask^k #-}
+{-| arrows in Hask^k have type `forall x. (a ~> b) x -}
 newtype (~>) (a :: k -> *) (b :: k -> *) (x :: k) =
   Arrow { (~$~) :: a x -> b x }
 
@@ -325,3 +325,38 @@ instance Foldable (Tagged xs) where
 instance Traversable (Tagged xs) where
   sequenceA (Here (Compose fax)) = Compose . Here . Flip <$> fax
   sequenceA (There t) = Compose . There . getCompose <$> sequenceA t
+
+{- Const ------------------------------------------------------------------------}
+
+instance Functor (Const a) where
+  fmap _ = Const . getConst
+
+instance Monoid m => Applicative (Const m) where
+  pure _ = Const mempty
+  Const mf <*> Const ma = Const (mf <> ma)
+
+instance Foldable (Const m) where
+  foldMap _ _ = mempty
+
+instance Traversable (Const m) where
+  sequenceA (Const a) = pure $ Compose $ Const a
+
+{- Compose ----------------------------------------------------------------------}
+
+instance (Prelude.Functor f, Functor g) => Functor (Compose f g) where
+  fmap f = Compose . Prelude.fmap (fmap f) . getCompose
+
+instance (Prelude.Applicative f, Applicative g) => Applicative (Compose f g) where
+  pure a = Compose $ Prelude.pure $ pure a
+  Compose fgh <*> Compose fga = Compose $ Prelude.liftA2 (<*>) fgh fga
+
+instance (Prelude.Foldable f, Foldable g) => Foldable (Compose f g) where
+  foldMap f = Prelude.foldMap (foldMap f) . getCompose
+
+instance (Prelude.Traversable f, Traversable g) => Traversable (Compose f g) where
+  sequenceA = fmap teardown . sequenceA . setup where
+    setup :: (Prelude.Functor f, Traversable g, Applicative h) => Compose f g (Compose h a) -> Conkin f (Flip a) (Compose h (Compose g))
+    setup = Conkin . Prelude.fmap (Compose . sequenceA) . getCompose
+
+    teardown :: Prelude.Functor f => Compose (Conkin f (Flip a)) (Flip (Compose g)) y -> Compose (Compose f g) (Flip a) y
+    teardown = Compose . Compose . Prelude.fmap (getCompose . getFlip) . getConkin . getCompose
