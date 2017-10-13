@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-} -- just used for deriving
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 module Conkin 
@@ -88,6 +90,7 @@ class (Foldable t, Functor t) => Traversable (t :: Cont Type k) where
 
 newtype Flip (a :: i -> j -> *) (y :: j) (x :: i) =
   Flip { getFlip :: a x y }
+  deriving (Show, Eq, Ord)
 
 {- Conkin -----------------------------------------------------------------------}
 
@@ -96,6 +99,7 @@ newtype Flip (a :: i -> j -> *) (y :: j) (x :: i) =
 newtype Conkin (f :: * -> *) (x :: k) (a :: k -> *) =
   -- Conkin f ~ Flip (Compose f)
   Conkin { getConkin :: f (a x) }
+  deriving (Show, Eq, Ord)
 
 instance Prelude.Functor f => Functor (Conkin f x) where
   fmap f (Conkin fx) = Conkin $ Prelude.fmap f fx
@@ -204,10 +208,18 @@ instance Traversable t => Prelude.Traversable (Coyoneda t) where
   
 newtype Curry (a :: (i,j) -> *) (x :: i) (y :: j) = Curry { getCurry :: a '(x,y) }
 
+deriving instance Show (a '(x,y)) => Show (Curry a x y)
+deriving instance Eq (a '(x,y)) => Eq (Curry a x y)
+deriving instance Ord (a '(x,y)) => Ord (Curry a x y)
+
 {- Product ----------------------------------------------------------------------}
 
 newtype Product (f :: (i -> *) -> *) (g :: (j -> *) -> *) (a :: (i,j) -> *) =
   Product { getProduct :: f (Compose g (Curry a)) }
+
+deriving instance Show (f (Compose g (Curry a))) => Show (Product f g a)
+deriving instance Eq (f (Compose g (Curry a))) => Eq (Product f g a)
+deriving instance Ord (f (Compose g (Curry a))) => Ord (Product f g a)
 
 instance (Functor f, Functor g) => Functor (Product f g) where
   fmap h = Product . fmap (Compose . fmap (Curry . h . getCurry) . getCompose) . getProduct
@@ -237,6 +249,10 @@ newtype Curry2 (a :: (i,j) -> k -> *) (x :: i) (y :: j) (z :: k) = Curry2 { getC
 newtype Coproduct (f :: (i -> *) -> *) (g :: (j -> *) -> *) (a :: Either i j -> *) =
   Coproduct { getCoproduct :: (f (Compose a 'Left), g (Compose a 'Right)) }
 
+deriving instance (Show (f (Compose a 'Left)), Show (g (Compose a 'Right))) => Show (Coproduct f g a)
+deriving instance (Eq (f (Compose a 'Left)), Eq (g (Compose a 'Right))) => Eq (Coproduct f g a)
+deriving instance (Ord (f (Compose a 'Left)), Ord (g (Compose a 'Right))) => Ord (Coproduct f g a)
+
 instance (Functor f, Functor g) => Functor (Coproduct f g) where
   fmap h (Coproduct (fal, gar)) = Coproduct (Compose . h . getCompose <$> fal, Compose . h . getCompose <$> gar)
 
@@ -265,6 +281,7 @@ newtype Compose2 (a :: j -> k -> *) (d :: i -> j) (x :: i) (y :: k) = Compose2 {
 
 newtype Pair (x0 :: k) (x1 :: k) (a :: k -> *) =
   Pair { getPair :: (a x0, a x1) }
+  deriving (Show, Eq, Ord)
 
 instance Functor (Pair x0 x1) where
   fmap f (Pair (ax0, ax1)) = Pair (f ax0, f ax1)
@@ -285,6 +302,21 @@ data Tuple (xs :: [k]) (a :: k -> *) where
   Nil :: Tuple '[] a
   Cons :: a x -> !(Tuple xs a) -> Tuple (x ': xs) a
 infixr 5 `Cons`
+
+instance Show (Tuple '[] a) where
+  showsPrec _ Nil = showString "Nil"
+instance (Show (a x), Show (Tuple xs a)) => Show (Tuple (x ': xs) a) where
+  showsPrec p (ax `Cons` t) = showParen (p > 5) $ showsPrec 6 ax . showString " `Cons` " . showsPrec 0 t
+
+instance Eq (Tuple '[] a) where
+  Nil == Nil = True
+instance (Eq (a x), Eq (Tuple xs a)) => Eq (Tuple (x ': xs) a) where
+  Cons ax at == Cons bx bt = ax == bx && at == bt 
+
+instance Ord (Tuple '[] a) where
+  Nil `compare` Nil = EQ
+instance (Ord (a x), Ord (Tuple xs a)) => Ord (Tuple (x ': xs) a) where
+  Cons ax at `compare` Cons bx bt = compare ax bx `mappend` compare at bt
 
 instance Functor (Tuple xs) where
   fmap _ Nil = Nil
@@ -313,6 +345,30 @@ instance Traversable (Tuple xs) where
 data Tagged (xs :: [k]) (a :: k -> *) where
   Here :: a x -> Tagged (x ': xs) a
   There :: !(Tagged xs a) -> Tagged (x ': xs) a
+
+instance Show (Tagged '[] a) where
+  showsPrec _ t = seq t $ error "Tagged '[] a is uninhabited"
+
+instance Eq (Tagged '[] a) where
+  t == t' = seq t $ seq t' $ error "Tagged '[] a is uninhabited"
+
+instance Ord (Tagged '[] a) where
+  t `compare` t' = seq t $ seq t' $ error "Tagged '[] a is uninhabited"
+
+instance (Show (a x), Show (Tagged xs a)) => Show (Tagged (x ': xs) a) where
+  showsPrec p (Here ax) = showParen (p > 10) $ showString "Here " . showsPrec 11 ax
+  showsPrec p (There t) = showParen (p > 10) $ showString "There " . showsPrec 11 t
+
+instance (Eq (a x), Eq (Tagged xs a)) => Eq (Tagged (x ': xs) a) where
+  Here ax == Here bx = ax == bx
+  There t == There t' = t == t'
+  _ == _ = False
+
+instance (Ord (a x), Ord (Tagged xs a)) => Ord (Tagged (x ': xs) a) where
+  Here ax `compare` Here bx = ax `compare` bx
+  There t `compare` There t' = t `compare` t'
+  Here _ `compare` There _ = LT
+  There _ `compare` Here _ = GT
 
 instance Functor (Tagged xs) where
   fmap f (Here ax) = Here (f ax)
