@@ -11,6 +11,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 module Conkin 
+  ( align
+  , apportion
   ( Cont
   {- classes -}
   , Functor(..), (<$>)
@@ -42,6 +44,23 @@ import Data.Functor.Const (Const(..))
 import Data.Kind (type (*), Type)
 import Data.Monoid (Endo(..), (<>))
 import Unsafe.Coerce (unsafeCoerce)
+import Data.Functor.Identity (Identity(..))
+
+align :: (Prelude.Traversable f, Applicative g) => f (g Identity) -> g f
+align = fmap teardown . sequenceA . Dispose . Prelude.fmap setup where
+  setup :: Functor g => g Identity -> Compose g (Flip Const) void
+  setup = Compose . fmap (Flip . Const . runIdentity)
+
+  teardown :: Prelude.Functor f => Compose (Dispose f void) (Flip (Flip Const)) x -> f x
+  teardown = Prelude.fmap (getConst . getFlip . getFlip) . getDispose . getCompose
+
+apportion :: (Prelude.Applicative f, Traversable g) => g f -> f (g Identity)
+apportion = Prelude.fmap teardown . getDispose . traverse setup where
+  setup :: Prelude.Functor f => f x -> Dispose f void (Const x)
+  setup = Dispose . Prelude.fmap Const
+
+  teardown :: Functor g => Compose g (Flip Const) void -> g Identity
+  teardown = fmap (Identity . getConst . getFlip) . getCompose
 
 type Cont r a = (a -> r) -> r
 
