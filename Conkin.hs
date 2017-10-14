@@ -18,7 +18,7 @@ module Conkin
   , Foldable(..)
   , Traversable(..)
   {- wrappers -}
-  , Conkin(..)
+  , Dispose(..)
   , Coyoneda(..), getCoyoneda, toCoyoneda
   {- functors -}
   , Product(..)
@@ -92,33 +92,33 @@ newtype Flip (a :: i -> j -> *) (y :: j) (x :: i) =
   Flip { getFlip :: a x y }
   deriving (Show, Eq, Ord)
 
-{- Conkin -----------------------------------------------------------------------}
+{- Dispose -----------------------------------------------------------------------}
 
--- If `f` is a functor from Hask to Hask, then forall x :: k, `Conkin f x` is a
+-- If `f` is a functor from Hask to Hask, then forall x :: k, `Dispose f x` is a
 -- functor from Hask^k to Hask
-newtype Conkin (f :: * -> *) (x :: k) (a :: k -> *) =
-  -- Conkin f ~ Flip (Compose f)
-  Conkin { getConkin :: f (a x) }
+newtype Dispose (f :: * -> *) (x :: k) (a :: k -> *) =
+  -- Dispose f ~ Flip (Compose f)
+  Dispose { getDispose :: f (a x) }
   deriving (Show, Eq, Ord)
 
-instance Prelude.Functor f => Functor (Conkin f x) where
-  fmap f (Conkin fx) = Conkin $ Prelude.fmap f fx
+instance Prelude.Functor f => Functor (Dispose f x) where
+  fmap f (Dispose fx) = Dispose $ Prelude.fmap f fx
   
-instance Prelude.Applicative f => Applicative (Conkin f x) where
-  pure a = Conkin $ Prelude.pure a
-  Conkin ff <*> Conkin fa = Conkin $ Prelude.liftA2 (~$~) ff fa
+instance Prelude.Applicative f => Applicative (Dispose f x) where
+  pure a = Dispose $ Prelude.pure a
+  Dispose ff <*> Dispose fa = Dispose $ Prelude.liftA2 (~$~) ff fa
 
-instance Prelude.Foldable t => Foldable (Conkin t x) where
-  foldr f b = Prelude.foldr f b . getConkin
-  foldMap f = Prelude.foldMap f . getConkin
+instance Prelude.Foldable t => Foldable (Dispose t x) where
+  foldr f b = Prelude.foldr f b . getDispose
+  foldMap f = Prelude.foldMap f . getDispose
 
-instance Prelude.Traversable t => Traversable (Conkin t x) where
-  sequenceA = teardown . Prelude.traverse setup . getConkin where
+instance Prelude.Traversable t => Traversable (Dispose t x) where
+  sequenceA = teardown . Prelude.traverse setup . getDispose where
     setup :: Compose f a x -> Coyoneda f (Exists (a x))
     setup = Coyoneda Exists . getCompose
 
-    teardown :: (Functor f, Prelude.Functor t) => Coyoneda f (t (Exists (a x))) -> f (Compose (Conkin t x) (Flip a))
-    teardown (Coyoneda k fax) = Compose . Conkin . Prelude.fmap Flip . unwrap k <$> fax
+    teardown :: (Functor f, Prelude.Functor t) => Coyoneda f (t (Exists (a x))) -> f (Compose (Dispose t x) (Flip a))
+    teardown (Coyoneda k fax) = Compose . Dispose . Prelude.fmap Flip . unwrap k <$> fax
 
     -- by parametricity, `t`'s implementation of `Prelude.sequenceA :: t (g e) ->
     -- g (t e)` can't inspect the value of `e`, so all `Exists a` values
@@ -134,35 +134,35 @@ data Exists (a :: k -> *) where
   Exists :: a x -> Exists a
 
 {-
-instance Traversable (Conkin [] x) where
-  sequenceA = Prelude.foldr cons nil . getConkin where
-    nil :: Applicative f => f (Compose (Conkin [] x) (Flip a))
-    nil = pure $ Compose $ Conkin []
+instance Traversable (Dispose [] x) where
+  sequenceA = Prelude.foldr cons nil . getDispose where
+    nil :: Applicative f => f (Compose (Dispose [] x) (Flip a))
+    nil = pure $ Compose $ Dispose []
 
-    cons :: Applicative f => Compose f a x -> f (Compose (Conkin [] x) (Flip a)) -> f (Compose (Conkin [] x) (Flip a))
-    cons = liftA2 (\axy (Compose (Conkin ayxs)) -> Compose $ Conkin $ Flip axy : ayxs) . getCompose
+    cons :: Applicative f => Compose f a x -> f (Compose (Dispose [] x) (Flip a)) -> f (Compose (Dispose [] x) (Flip a))
+    cons = liftA2 (\axy (Compose (Dispose ayxs)) -> Compose $ Dispose $ Flip axy : ayxs) . getCompose
 
-instance Traversable (Conkin Maybe x) where
-  sequenceA = maybe nothing just . getConkin where
-    nothing :: Applicative f => f (Compose (Conkin Maybe x) (Flip a))
-    nothing = pure $ Compose $ Conkin Nothing
+instance Traversable (Dispose Maybe x) where
+  sequenceA = maybe nothing just . getDispose where
+    nothing :: Applicative f => f (Compose (Dispose Maybe x) (Flip a))
+    nothing = pure $ Compose $ Dispose Nothing
 
-    just :: Applicative f => Compose f a x -> f (Compose (Conkin Maybe x) (Flip a))
-    just = fmap (Compose . Conkin . Just . Flip) . getCompose
+    just :: Applicative f => Compose f a x -> f (Compose (Dispose Maybe x) (Flip a))
+    just = fmap (Compose . Dispose . Just . Flip) . getCompose
 
-instance Traversable (Conkin (Either a) x) where
-  sequenceA = either left right . getConkin where
-    left :: Applicative f => a -> f (Compose (Conkin (Either a) x) (Flip b))
-    left a = pure $ Compose $ Conkin $ Left a
+instance Traversable (Dispose (Either a) x) where
+  sequenceA = either left right . getDispose where
+    left :: Applicative f => a -> f (Compose (Dispose (Either a) x) (Flip b))
+    left a = pure $ Compose $ Dispose $ Left a
 
-    right :: Applicative f => Compose f b x -> f (Compose (Conkin (Either a) x) (Flip b))
-    right = fmap (Compose . Conkin . Right . Flip) . getCompose
+    right :: Applicative f => Compose f b x -> f (Compose (Dispose (Either a) x) (Flip b))
+    right = fmap (Compose . Dispose . Right . Flip) . getCompose
 
-instance Traversable (Conkin (Const m) x) where
-  sequenceA (Conkin (Const m)) = pure $ Compose $ Conkin $ Const m
+instance Traversable (Dispose (Const m) x) where
+  sequenceA (Dispose (Const m)) = pure $ Compose $ Dispose $ Const m
 
-instance Traversable (Conkin ((,) a) x) where
-  sequenceA (Conkin (a, Compose faxy)) = fmap (\axy -> Compose $ Conkin (a, Flip axy)) faxy
+instance Traversable (Dispose ((,) a) x) where
+  sequenceA (Dispose (a, Compose faxy)) = fmap (\axy -> Compose $ Dispose (a, Flip axy)) faxy
 -}
 
 
@@ -199,9 +199,9 @@ instance Foldable t => Prelude.Foldable (Coyoneda t) where
   foldMap f (Coyoneda k t) = foldMap (f . k) t
 
 instance Traversable t => Prelude.Traversable (Coyoneda t) where
-  sequenceA (Coyoneda k t) = Prelude.fmap teardown . getConkin . sequenceA $ setup . k <$> t where
-    setup :: Prelude.Functor f => f a -> Compose (Conkin f y) (Curry (Const a)) x
-    setup = Compose . Conkin . Prelude.fmap (Curry . Const)
+  sequenceA (Coyoneda k t) = Prelude.fmap teardown . getDispose . sequenceA $ setup . k <$> t where
+    setup :: Prelude.Functor f => f a -> Compose (Dispose f y) (Curry (Const a)) x
+    setup = Compose . Dispose . Prelude.fmap (Curry . Const)
 
     teardown :: Functor t => Compose t (Flip (Curry (Const a))) y -> Coyoneda t a
     teardown = Coyoneda (getConst . getCurry . getFlip) . getCompose
@@ -411,8 +411,8 @@ instance (Prelude.Foldable f, Foldable g) => Foldable (Compose f g) where
 
 instance (Prelude.Traversable f, Traversable g) => Traversable (Compose f g) where
   sequenceA = fmap teardown . sequenceA . setup where
-    setup :: (Prelude.Functor f, Traversable g, Applicative h) => Compose f g (Compose h a) -> Conkin f (Flip a) (Compose h (Compose g))
-    setup = Conkin . Prelude.fmap (Compose . sequenceA) . getCompose
+    setup :: (Prelude.Functor f, Traversable g, Applicative h) => Compose f g (Compose h a) -> Dispose f (Flip a) (Compose h (Compose g))
+    setup = Dispose . Prelude.fmap (Compose . sequenceA) . getCompose
 
-    teardown :: Prelude.Functor f => Compose (Conkin f (Flip a)) (Flip (Compose g)) y -> Compose (Compose f g) (Flip a) y
-    teardown = Compose . Compose . Prelude.fmap (getCompose . getFlip) . getConkin . getCompose
+    teardown :: Prelude.Functor f => Compose (Dispose f (Flip a)) (Flip (Compose g)) y -> Compose (Compose f g) (Flip a) y
+    teardown = Compose . Compose . Prelude.fmap (getCompose . getFlip) . getDispose . getCompose
