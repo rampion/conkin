@@ -16,9 +16,10 @@ module Conkin
   , Cont
   {- classes -}
   , Functor(..), (<$>)
-  , Applicative(..), type (~>)(..), liftA2, liftA3
+  , Applicative(..), type (~>)(..), liftA2, liftA3, liftA4
   , Foldable(..)
   , Traversable(..)
+  , liftT1, liftT2, liftT3, liftT4
   {- wrappers -}
   , Dispose(..)
   , Coyoneda(..), getCoyoneda, toCoyoneda
@@ -90,6 +91,9 @@ liftA2 f a b = (Arrow . f) <$> a <*> b
 liftA3 :: Applicative f => (forall x. a x -> b x -> c x -> d x) -> f a -> f b -> f c -> f d
 liftA3 f a b c = Arrow . (Arrow .) . f <$> a <*> b <*> c
 
+liftA4 :: Applicative f => (forall x. a x -> b x -> c x -> d x -> e x) -> f a -> f b -> f c -> f d -> f e
+liftA4 f a b c d = Arrow . (Arrow .) . ((Arrow.).) . f <$> a <*> b <*> c <*> d
+
 class Foldable (t :: Cont Type k) where
   foldr :: (forall (x :: k). a x -> b -> b ) -> b -> t a -> b
   foldr f b ta = foldMap (Endo . f) ta `appEndo` b
@@ -111,6 +115,27 @@ class (Foldable t, Functor t) => Traversable (t :: Cont Type k) where
 newtype Flip (a :: i -> j -> *) (y :: j) (x :: i) =
   Flip { getFlip :: a x y }
   deriving (Show, Eq, Ord)
+
+{- Helpers for implementing sequenceA -}
+
+liftT1 :: Applicative g =>
+  (forall h. h w -> f h) -> Compose g a w -> g (Compose f (Flip a))
+liftT1 c = fmap (Compose . c . Flip) . getCompose
+
+liftT2 :: Applicative g => 
+  (forall h. h w -> h x -> f h) -> Compose g a w -> Compose g a x -> g (Compose f (Flip a))
+liftT2 c (Compose gaw) (Compose gax) = 
+  liftA2 (\awt axt -> Compose $ c (Flip awt) (Flip axt)) gaw gax
+
+liftT3 :: Applicative g => 
+  (forall h. h w -> h x -> h y -> f h) -> Compose g a w -> Compose g a x -> Compose g a y -> g (Compose f (Flip a))
+liftT3 c (Compose gaw) (Compose gax) (Compose gay) = 
+  liftA3 (\awt axt ayt -> Compose $ c (Flip awt) (Flip axt) (Flip ayt)) gaw gax gay
+
+liftT4 :: Applicative g => 
+  (forall h. h w -> h x -> h y -> h z -> f h) -> Compose g a w -> Compose g a x -> Compose g a y -> Compose g a z -> g (Compose f (Flip a))
+liftT4 c (Compose gaw) (Compose gax) (Compose gay) (Compose gaz) = 
+  liftA4 (\awt axt ayt azt -> Compose $ c (Flip awt) (Flip axt) (Flip ayt) (Flip azt)) gaw gax gay gaz
 
 {- Dispose -----------------------------------------------------------------------}
 
@@ -314,7 +339,7 @@ instance Foldable (Pair x0 x1) where
   foldMap f (Pair (ax0, ax1)) = f ax0 <> f ax1
   
 instance Traversable (Pair x0 x1) where
-  traverse f (Pair (ax0, ax1)) = liftA2 (\bx0 bx1 -> Compose $ Pair (Flip bx0, Flip bx1)) (f ax0) (f ax1)
+  sequenceA (Pair (gax0, gax1)) = liftT2 (curry Pair) gax0 gax1
 
 {- Tuple ------------------------------------------------------------------------}
 
