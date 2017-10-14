@@ -13,7 +13,7 @@
 module Conkin 
   ( align
   , apportion
-  ( Cont
+  , Cont
   {- classes -}
   , Functor(..), (<$>)
   , Applicative(..), type (~>)(..), liftA2, liftA3
