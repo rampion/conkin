@@ -82,6 +82,7 @@ infixl 4 <*>
 {-| arrows in Hask^k have type `forall x. (a ~> b) x -}
 newtype (~>) (a :: k -> *) (b :: k -> *) (x :: k) =
   Arrow { (~$~) :: a x -> b x }
+infixr 0 ~>
 
 liftA2 :: Applicative f => (forall x. a x -> b x -> c x) -> f a -> f b -> f c
 liftA2 f a b = (Arrow . f) <$> a <*> b
