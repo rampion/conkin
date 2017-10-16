@@ -111,7 +111,7 @@ Looking closer at the kind of o
 # Literate Haskell
 
 This README.md file is a literate haskell file, for use with [`markdown-unlit`](https://github.com/sol/markdown-unlit#readme).
-To allow GHC to recognize it, it's softlinked as `README.lhs`, which you can compile with
+To allow GHC to recognize it, it's softlinked as `Continuation/Kind.lhs`, which you can compile with
 
     $ ghc -pgmL markdown-unlit README.lhs
 
