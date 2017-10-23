@@ -3,7 +3,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -13,7 +12,6 @@
 module Conkin 
   ( align
   , apportion
-  , Cont
   {- classes -}
   , Functor(..), (<$>)
   , Applicative(..), type (~>)(..), liftA2, liftA3, liftA4
@@ -42,7 +40,6 @@ import qualified Prelude
 import qualified Control.Applicative as Prelude
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
-import Data.Kind (type (*), Type)
 import Data.Monoid (Endo(..), (<>))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Functor.Identity (Identity(..))
@@ -63,19 +60,18 @@ apportion = Prelude.fmap teardown . getDispose . traverse setup where
   teardown :: Functor g => Compose g (Flip Const) void -> g Identity
   teardown = fmap (Identity . getConst . getFlip) . getCompose
 
-type Cont r a = (a -> r) -> r
 
 {- Classes ----------------------------------------------------------------------}
 
 {-| A functor from Hask^k to Hask -}
-class Functor (f :: Cont Type k) where
+class Functor (f :: (k -> *) -> *) where
   fmap :: (forall (x :: k). a x -> b x) -> f a -> f b
 
 (<$>) :: Functor f => (forall x. a x -> b x) -> f a -> f b 
 (<$>) = fmap
 infixl 4 <$>
 
-class Functor f => Applicative (f :: Cont Type k) where
+class Functor f => Applicative (f :: (k -> *) -> *) where
   pure :: (forall (x :: k). a x) -> f a
   (<*>) :: f (a ~> b) -> f a -> f b
 infixl 4 <*>
@@ -94,7 +90,7 @@ liftA3 f a b c = Arrow . (Arrow .) . f <$> a <*> b <*> c
 liftA4 :: Applicative f => (forall x. a x -> b x -> c x -> d x -> e x) -> f a -> f b -> f c -> f d -> f e
 liftA4 f a b c d = Arrow . (Arrow .) . ((Arrow.).) . f <$> a <*> b <*> c <*> d
 
-class Foldable (t :: Cont Type k) where
+class Foldable (t :: (k -> *) -> *) where
   foldr :: (forall (x :: k). a x -> b -> b ) -> b -> t a -> b
   foldr f b ta = foldMap (Endo . f) ta `appEndo` b
 
@@ -103,11 +99,11 @@ class Foldable (t :: Cont Type k) where
 
   {-# MINIMAL foldr | foldMap #-}
 
-class (Foldable t, Functor t) => Traversable (t :: Cont Type k) where
-  traverse :: Applicative f => (forall x. a x -> f (b x)) -> t a -> f (Compose t (Flip b))
+class (Foldable t, Functor t) => Traversable (t :: (i -> *) -> *) where
+  traverse :: forall (f :: (j -> *) -> *) (a :: i -> *) (b :: i -> j -> *). Applicative f => (forall x. a x -> f (b x)) -> t a -> f (Compose t (Flip b))
   traverse f = sequenceA . fmap (Compose . f)
 
-  sequenceA :: Applicative f => t (Compose f a) -> f (Compose t (Flip a))
+  sequenceA :: forall (f :: (j -> *) -> *) (a :: i -> j -> *). Applicative f => t (Compose f a) -> f (Compose t (Flip a))
   sequenceA = traverse getCompose
 
   {-# MINIMAL traverse | sequenceA #-}
@@ -215,8 +211,8 @@ instance Traversable (Dispose ((,) a) x) where
 
 -- If `t` is a functor from Hask^k to Hask, then 
 -- `Coyoneda t` is a functor from Hask to Hask.
-data Coyoneda (t :: (k -> *) -> *) (a :: *) where
-  Coyoneda :: (forall x. a x -> b) -> t a -> Coyoneda t b
+data Coyoneda (t :: (k -> *) -> *) (u :: *) where
+  Coyoneda :: (forall x. a x -> u) -> t a -> Coyoneda t u
 
 getCoyoneda :: Functor t => Coyoneda t a -> t (Const a)
 getCoyoneda (Coyoneda f t) = Const . f <$> t
