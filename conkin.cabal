@@ -21,6 +21,8 @@ test-suite doctests
   main-is: doctests.hs
   build-depends: base
                , doctest >=0.11.2 && <0.12
+               , pretty-show >= 1.6.13 && <2.0.0
+               -- , happy >= 1.19.8
   ghc-options: -Wall -Wextra -Werror
   default-language: Haskell2010
 
