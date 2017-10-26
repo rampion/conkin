@@ -1,7 +1,7 @@
 name: conkin
-version: 0.1.0.0
-synopsis: 
-homepage: http://github.com/rampion/continuation-kind
+version: 1.0.0
+synopsis: Tools for functors from Hask^k to Hask
+homepage: http://github.com/rampion/conkin
 license: PublicDomain
 author: Noah Luck Easterly
 maintainer: noah.easterly@gmail.com
