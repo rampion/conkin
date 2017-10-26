@@ -1,6 +1,6 @@
 One thing I haven't often seen people talk about doing in Haskell is working with data in [column-major order](https://en.wikipedia.org/wiki/Row-_and_column-major_order), or as a [struct of arrays](https://en.wikipedia.org/wiki/AOS_and_SOA). If we take a look though, there's some interesting possibilities and theory underlying this relatively simple concept.  
 
-The `conkin` library is the result of my explorations along this line of thinking.
+The [`conkin` package](http://hackage.haskell.org/package/conkin) is the result of my explorations along this line of thinking.
 
 <!--
 # Setup
@@ -100,7 +100,7 @@ extractFields0 items = ( upc <$> items, name <$> items, price <$> items )
 -}
 ```
 
-We've lost bit of semantic meaning, however, as we've switched from our own custom data type to a generic tuple.  We can regain this meaning if we define a type specifically for a collection of items, parameterized by the item type:
+We've lost bit of semantic meaning, however, as we've switched from our own custom data type to a generic tuple.  We can regain this meaning if we define a type specifically for a collection of items, parameterized by the collection type:
 
 ```haskell
 extractFields1 :: [Item] -> ItemF []
