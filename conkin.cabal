@@ -1,5 +1,5 @@
 name: conkin
-version: 1.0.0
+version: 1.0.1
 synopsis: Tools for functors from Hask^k to Hask
 description: Tools for functors from Hask^k to Hask
 homepage: http://github.com/rampion/conkin
@@ -18,7 +18,7 @@ source-repository head
 source-repository this
   type: git
   location: git://github.com/rampion/conkin.git
-  tag: v1.0.0
+  tag: v1.0.1
 
 flag Development
   description: Enable all warnings and upgrade warnings to errors
