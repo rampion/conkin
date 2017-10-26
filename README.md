@@ -702,5 +702,6 @@ Many of the above examples are [`doctest`](https://github.com/sol/doctest#readme
 
 Alternately, you can have cabal manage the dependencies and compile and test this with:
 
-    $ cabal install
+    $ cabal install happy
+    $ cabal install --enable-tests
     $ cabal test readme
