@@ -161,10 +161,12 @@ class Foldable (t :: (k -> *) -> *) where
 
 -- | An analogue of 'Prelude.Traversable' for kind @(k -> *) -> *@
 class (Foldable t, Functor t) => Traversable (t :: (i -> *) -> *) where
-  traverse :: Applicative f => (forall x. a x -> f (b x)) -> t a -> f (Compose t (Flip b))
+  traverse :: forall (f :: (j -> *) -> *) (a :: i -> *) (b :: i -> j -> *). 
+              Applicative f => (forall x. a x -> f (b x)) -> t a -> f (Compose t (Flip b))
   traverse f = sequenceA . fmap (Compose . f)
 
-  sequenceA :: Applicative f => t (Compose f a) -> f (Compose t (Flip a))
+  sequenceA :: forall (f :: (j -> *) -> *) (a :: i -> j -> *). 
+               Applicative f => t (Compose f a) -> f (Compose t (Flip a))
   sequenceA = traverse getCompose
 
   {-# MINIMAL traverse | sequenceA #-}
