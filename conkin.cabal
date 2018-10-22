@@ -27,7 +27,7 @@ flag Development
 
 library
   exposed-modules: Conkin
-  build-depends: base >=4.9 && <4.11
+  build-depends: base >=4.9 && <4.12
   default-language: Haskell2010
   if flag(development)
     ghc-options: -Wall -Wextra -Werror
